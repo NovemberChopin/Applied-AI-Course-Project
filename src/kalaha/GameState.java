@@ -111,8 +111,7 @@ public class GameState {
     public GameState clone() {
         //Make a copy of the board...
         int[] n_board = new int[14];
-        for (int i = 0; i < 14; i++)
-        {
+        for (int i = 0; i < 14; i++) {
             n_board[i] = board[i];
         }
         //... and return a new object
@@ -152,14 +151,12 @@ public class GameState {
         if (nextPlayer == 1) {
             cMoveI = START_S + ambo;
         }
-        else
-        {
+        else {
             cMoveI = START_N + ambo;
         }
         
         //Check if legal move
-        if (board[cMoveI] == 0)
-        {
+        if (board[cMoveI] == 0) {
             //No legal move...
             return false;
         }
@@ -170,56 +167,45 @@ public class GameState {
         boolean lastIsHouse = false;
         
         //Sow seeds
-        while (seeds > 0)
-        {
+        while (seeds > 0) {
             //Take a step
             cMoveI++;
             if (cMoveI >= 14) cMoveI = 0;
             
-            if ( (nextPlayer == 1 && cMoveI == HOUSE_N) || (nextPlayer == 2 && cMoveI == HOUSE_S) )
-            {
+            if ( (nextPlayer == 1 && cMoveI == HOUSE_N) || (nextPlayer == 2 && cMoveI == HOUSE_S) ) {
                 //Don't sow in opponents house
             }
-            else
-            {
+            else {
                 //Sow a seed
                 board[cMoveI]++;
                 seeds--;
             }
             
             //Check special cases for last seed
-            if (seeds == 0)
-            {
+            if (seeds == 0) {
                 //Check for extra move
                 if (nextPlayer == 1 && cMoveI == HOUSE_S) lastIsHouse = true;
                 if (nextPlayer == 2 && cMoveI == HOUSE_N) lastIsHouse = true;
                 
                 //Check capture
                 boolean capture = false;
-                if (board[cMoveI] == 1)
-                {
-                    if (nextPlayer == 1)
-                    {
+                if (board[cMoveI] == 1) {
+                    if (nextPlayer == 1) {
                         if (cMoveI >= START_S && cMoveI <= END_S) capture = true;
                     }
-                    if (nextPlayer == 2)
-                    {
+                    if (nextPlayer == 2) {
                         if (cMoveI >= START_N && cMoveI <= END_N) capture = true;
                     }
                 }
                 
                 //Possible capture of opponent's seeds
-                if (capture)
-                {
+                if (capture) {
                     int oi = getOppositeAmbo(cMoveI);
-                    if (board[oi] > 0)
-                    {
-                        if (nextPlayer == 1)
-                        {
+                    if (board[oi] > 0) {
+                        if (nextPlayer == 1) {
                             board[HOUSE_S] += board[cMoveI] + board[oi];
                         }
-                        else if (nextPlayer == 2)
-                        {
+                        else if (nextPlayer == 2) {
                             board[HOUSE_N] += board[cMoveI] + board[oi];
                         }
                         board[cMoveI] = 0;
@@ -228,9 +214,11 @@ public class GameState {
                 }
             }
         }
-        
-        if (!lastIsHouse)
-        {
+
+        /*
+        * If last seed ends in a house, the player gets an extra move
+        * */
+        if (!lastIsHouse) {
             toggleNextPlayer();
         }
         
@@ -247,8 +235,7 @@ public class GameState {
      * @param ambo The ambo
      * @return Opposite ambo index, or -1 if failed to find the opposite ambo.
      */
-    private int getOppositeAmbo(int ambo)
-    {
+    private int getOppositeAmbo(int ambo) {
         if (ambo == START_S) return END_N;
         if (ambo == START_S+1) return END_N-1;
         if (ambo == START_S+2) return END_N-2;
@@ -278,8 +265,7 @@ public class GameState {
     /**
      * Toggles to next player.
      */
-    private void toggleNextPlayer()
-    {
+    private void toggleNextPlayer() {
         if (nextPlayer == 1) nextPlayer = 2;
         else nextPlayer = 1;
     }
@@ -292,18 +278,15 @@ public class GameState {
      * @param player The player (1-2)
      * @return Number of seeds, or -1 if an error occured
      */
-    public int getSeeds(int ambo, int player)
-    {
+    public int getSeeds(int ambo, int player) {
         //Internal ambo number of 0-5
         ambo--;
         if (ambo < 0 || ambo > 5) return -1;
         
-        if (player == 1)
-        {
+        if (player == 1) {
             return board[START_S + ambo];
         }
-        if (player == 2)
-        {
+        if (player == 2) {
             return board[START_N + ambo];
         }
         return -1;
@@ -320,18 +303,14 @@ public class GameState {
         int seeds = 0;
         
         //Player 1 - South
-        for (int i = START_S; i <= END_S; i++)
-        {
+        for (int i = START_S; i <= END_S; i++) {
             seeds += board[i];
         }
-        if (seeds == 0)
-        {
+        if (seeds == 0) {
             //Gather opponents seeds (if any)
             //Rule 6
-            for (int i = START_N; i <= END_N; i++)
-            {
-                if (board[i] > 0)
-                {
+            for (int i = START_N; i <= END_N; i++) {
+                if (board[i] > 0) {
                     board[HOUSE_N] += board[i];
                     board[i] = 0;
                 }
@@ -341,25 +320,20 @@ public class GameState {
         
         //Player 2 - North
         seeds = 0;
-        for (int i = START_N; i <= END_N; i++)
-        {
+        for (int i = START_N; i <= END_N; i++) {
             seeds += board[i];
         }
-        if (seeds == 0)
-        {
+        if (seeds == 0) {
             //Gather opponents seeds (if any)
             //Rule 6
-            for (int i = START_S; i <= END_S; i++)
-            {
-                if (board[i] > 0)
-                {
+            for (int i = START_S; i <= END_S; i++) {
+                if (board[i] > 0) {
                     board[HOUSE_S] += board[i];
                     board[i] = 0;
                 }
             }
             return true;
         }
-        
         return false;
     }
     
@@ -368,27 +342,21 @@ public class GameState {
      * 
      * @return Winner (1 or 2), 0 if draw, and -1 if game is still running.
      */
-    public int getWinner()
-    {
-        if (gameEnded())
-        {
+    public int getWinner() {
+        if (gameEnded()) {
             int s1 = getScore(1);
             int s2 = getScore(2);
             
-            if (s1 > s2)
-            {
+            if (s1 > s2) {
                 return 1;
             }
-            else if (s2 > s1)
-            {
+            else if (s2 > s1) {
                 return 2;
             }
-            else
-            {
+            else {
                 return 0;
             }
         }
-        
         return -1;
     }
     
@@ -399,25 +367,19 @@ public class GameState {
      * @param player The player to check
      * @return Number of possible moves for this player
      */
-    public int getNoValidMoves(int player)
-    {
+    public int getNoValidMoves(int player) {
         int cnt = 0;
         
-        if (player == 1)
-        {
-            for (int i = START_S; i <= END_S; i++)
-            {
+        if (player == 1) {
+            for (int i = START_S; i <= END_S; i++) {
                 if (board[i] > 0) cnt++;
             }
         }
-        else
-        {
-            for (int i = START_N; i <= END_N; i++)
-            {
+        else {
+            for (int i = START_N; i <= END_N; i++) {
                 if (board[i] > 0) cnt++;
             }
         }
-        
         return cnt;
     }
     
@@ -427,16 +389,13 @@ public class GameState {
      * @param ambo The move to make (1-6)
      * @return True if the move is possible (at least one seed in the ambo), false otherwise
      */
-    public boolean moveIsPossible(int ambo)
-    {
+    public boolean moveIsPossible(int ambo) {
         //Internal ambo number of 0-5
         ambo--;
-        if (nextPlayer == 1)
-        {
+        if (nextPlayer == 1) {
             if (board[START_S + ambo] > 0) return true;
         }
-        else
-        {
+        else {
             if (board[START_N + ambo] > 0) return true;
         }
         return false;
@@ -448,18 +407,15 @@ public class GameState {
      * @param player The player
      * @return The score for the specified player
      */
-    public int getScore(int player)
-    {
+    public int getScore(int player) {
         //In case we have a winner, this method
         //needs to be called to update the game state.
         gameEnded();
         
-        if (player == 1)
-        {
+        if (player == 1) {
             return board[HOUSE_S];
         }
-        else
-        {
+        else {
             return board[HOUSE_N];
         }
     }
@@ -469,16 +425,12 @@ public class GameState {
      * 
      * @return Board string representation 
      */
-    public String toString()
-    {
-	String str = "";
-
-	for(int i = 0; i < 14; i++)
-	{
+    public String toString() {
+        String str = "";
+        for(int i = 0; i < 14; i++) {
             str += board[i] + ";";
-	}
+        }
         str += nextPlayer;
-
-	return str;
+        return str;
     }
 }

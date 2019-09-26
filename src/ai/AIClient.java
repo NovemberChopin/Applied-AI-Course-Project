@@ -27,8 +27,7 @@ public class AIClient implements Runnable {
     /**
      * Creates a new client.
      */
-    public AIClient()
-    {
+    public AIClient() {
 	    player = -1;
         connected = false;
         
@@ -136,32 +135,29 @@ public class AIClient implements Runnable {
                 //Check if it is my turn. If so, do a move
                 out.println(Commands.NEXT_PLAYER);
                 reply = in.readLine();
-                if (!reply.equals(Errors.GAME_NOT_FULL) && running)
-                {
+                if (!reply.equals(Errors.GAME_NOT_FULL) && running) {
                     int nextPlayer = Integer.parseInt(reply);
 
-                    if(nextPlayer == player)
-                    {
+                    if(nextPlayer == player) {
                         out.println(Commands.BOARD);
                         String currentBoardStr = in.readLine();
                         boolean validMove = false;
-                        while (!validMove)
-                        {
+                        while (!validMove) {
                             long startT = System.currentTimeMillis();
                             //This is the call to the function for making a move.
                             //You only need to change the contents in the getMove()
                             //function.
                             GameState currentBoard = new GameState(currentBoardStr);
+
                             int cMove = getMove(currentBoard);
-                            
+
                             //Timer stuff
                             long tot = System.currentTimeMillis() - startT;
                             double e = (double)tot / (double)1000;
                             
                             out.println(Commands.MOVE + " " + cMove + " " + player);
                             reply = in.readLine();
-                            if (!reply.startsWith("ERROR"))
-                            {
+                            if (!reply.startsWith("ERROR")) {
                                 validMove = true;
                                 addText("Made move " + cMove + " in " + e + " secs");
                             }
@@ -172,7 +168,7 @@ public class AIClient implements Runnable {
                 //Wait
                 Thread.sleep(100);
             }
-	}
+	    }
         catch (Exception ex)
         {
             running = false;
@@ -198,18 +194,111 @@ public class AIClient implements Runnable {
      * @return Move to make (1-6)
      */
     public int getMove(GameState currentBoard) {
-        int myMove = getRandom();
-        return myMove;
+        // clone game state to simulation
+        GameState gsNode = currentBoard.clone();
+        return minimax(gsNode, 6);
     }
     
     /**
      * Returns a random ambo number (1-6) used when making
      * a random move.
-     * 
+     *
      * @return Random ambo number
      */
-    public int getRandom()
-    {
+    public int getRandom() {
         return 1 + (int)(Math.random() * 6);
+    }
+
+
+    /**
+     * minimax algorithm
+     *
+     * @param gsNode The current board state
+     * @param depth search depth level
+     * @return the best move number
+     */
+    public int minimax(GameState gsNode, int depth) {
+        int bestMove = -1;
+        // Max always chooses the minimum value of Min's maximum advantage.
+        int bestValue = -100;
+
+        for (int i = 1; i <= 6; i++) {
+            boolean isMovePoss = gsNode.moveIsPossible(i);
+            if (isMovePoss) {
+                // if ambo is not empty, make a move
+                boolean isMoveSucc = gsNode.clone().makeMove(i);
+                if (isMoveSucc) {
+                    int value = minFunc(gsNode.clone(), depth);
+                    if (value >= bestValue) {
+                        bestValue = value;
+                        bestMove = i;
+                    }
+                }
+            }
+        }
+        return bestMove;
+    }
+
+    /**
+     * utility function, we put the score of AI's subtract adversary's as the utility value
+     *
+     * @param gsNode the node need to valuate utility value
+     * @return utility value
+     */
+    public int evaluateFun(GameState gsNode) {
+        int player2 = player == 1 ? 2 : 1;
+        return gsNode.getScore(player) - gsNode.getScore(player2);
+    }
+
+
+    /**
+     * Handling problems from the perspective of Max
+     *
+     * @param gsNode The current board state
+     * @param depth search depth level
+     * @return evaluate value
+     */
+    public int maxFunc(GameState gsNode, int depth) {
+        int evaluateValue = evaluateFun(gsNode);
+        int bestValue = -100;
+        if (depth == 0) {
+            return evaluateValue;
+        }
+        for (int i = 1; i <= 6; i++) {
+            if (gsNode.moveIsPossible(i)) {
+                // make a move if the ambo is not empty
+                if (gsNode.clone().makeMove(i)) {
+                    // For Max, the bigger the valuation of Min, the better for max
+                    bestValue = Math.max(bestValue, minFunc(gsNode.clone(), depth-1));
+                }
+            }
+        }
+        return evaluateValue;
+    }
+
+
+    /**
+     * Handling problems from the perspective of Min
+     *
+     * @param gsNode The current board state
+     * @param depth search depth level
+     * @return evaluate value
+     */
+    public int minFunc(GameState gsNode, int depth) {
+        int evaluateValue = evaluateFun(gsNode);
+        int bestValue = +100;
+        if (depth == 0) {
+            return evaluateValue;
+        }
+        for (int i = 1; i <= 6; i++) {
+            if (gsNode.moveIsPossible(i)) {
+                // make a move if the ambo is not empty
+                if (gsNode.clone().makeMove(i)) {
+                    // For Min, the smaller the valuation of Max, the better for min
+                    bestValue = Math.min(bestValue, maxFunc(gsNode.clone(), depth-1));
+                }
+            }
+        }
+        return evaluateValue;
     }
 }
