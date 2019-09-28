@@ -228,7 +228,7 @@ public class AIClient implements Runnable {
                 // if ambo is not empty, make a move
                 boolean isMoveSucc = gsNode.clone().makeMove(i);
                 if (isMoveSucc) {
-                    int value = minFunc(gsNode.clone(), depth);
+                    int value = minFunc(gsNode.clone(), depth, -100, +100);
                     if (value >= bestValue) {
                         bestValue = value;
                         bestMove = i;
@@ -258,10 +258,10 @@ public class AIClient implements Runnable {
      * @param depth search depth level
      * @return evaluate value
      */
-    public int maxFunc(GameState gsNode, int depth) {
+    public int maxFunc(GameState gsNode, int depth, int alpha, int bate) {
         int evaluateValue = evaluateFun(gsNode);
         int bestValue = -100;
-        if (depth == 0) {
+        if (depth == 0 || bate <= alpha) {
             return evaluateValue;
         }
         for (int i = 1; i <= 6; i++) {
@@ -269,7 +269,7 @@ public class AIClient implements Runnable {
                 // make a move if the ambo is not empty
                 if (gsNode.clone().makeMove(i)) {
                     // For Max, the bigger the valuation of Min, the better for max
-                    bestValue = Math.max(bestValue, minFunc(gsNode.clone(), depth-1));
+                    bestValue = Math.max(bestValue, minFunc(gsNode.clone(), depth-1, Math.max(bestValue, alpha), bate));
                 }
             }
         }
@@ -284,10 +284,10 @@ public class AIClient implements Runnable {
      * @param depth search depth level
      * @return evaluate value
      */
-    public int minFunc(GameState gsNode, int depth) {
+    public int minFunc(GameState gsNode, int depth, int alpha, int bate) {
         int evaluateValue = evaluateFun(gsNode);
         int bestValue = +100;
-        if (depth == 0) {
+        if (depth == 0 || alpha >= bate) {
             return evaluateValue;
         }
         for (int i = 1; i <= 6; i++) {
@@ -295,7 +295,7 @@ public class AIClient implements Runnable {
                 // make a move if the ambo is not empty
                 if (gsNode.clone().makeMove(i)) {
                     // For Min, the smaller the valuation of Max, the better for min
-                    bestValue = Math.min(bestValue, maxFunc(gsNode.clone(), depth-1));
+                    bestValue = Math.min(bestValue, maxFunc(gsNode.clone(), depth-1, alpha, Math.min(bestValue, bate)));
                 }
             }
         }
