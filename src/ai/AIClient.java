@@ -1,11 +1,16 @@
 package ai;
 
-import ai.Global;
-import java.io.*;
-import java.net.*;
+import kalaha.Commands;
+import kalaha.Errors;
+import kalaha.GameState;
+import kalaha.KalahaMain;
+
 import javax.swing.*;
 import java.awt.*;
-import kalaha.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 /**
  * This is the main class for your Kalaha AI bot. Currently
@@ -209,7 +214,6 @@ public class AIClient implements Runnable {
         return 1 + (int)(Math.random() * 6);
     }
 
-
     /**
      * minimax algorithm
      *
@@ -225,10 +229,11 @@ public class AIClient implements Runnable {
         for (int i = 1; i <= 6; i++) {
             boolean isMovePoss = gsNode.moveIsPossible(i);
             if (isMovePoss) {
-                // if ambo is not empty, make a move
+                // if ambo is not empty, MAX make a move
                 boolean isMoveSucc = gsNode.clone().makeMove(i);
                 if (isMoveSucc) {
-                    int value = minFunc(gsNode.clone(), depth, -100, +100);
+                    // turn MIN to move
+                    int value = minFunc(gsNode.clone(), depth-1, -100, +100);
                     if (value >= bestValue) {
                         bestValue = value;
                         bestMove = i;
@@ -250,17 +255,20 @@ public class AIClient implements Runnable {
         return gsNode.getScore(player) - gsNode.getScore(player2);
     }
 
-
     /**
      * Handling problems from the perspective of Max
      *
      * @param gsNode The current board state
      * @param depth search depth level
+     * @param alpha Evaluation lower limit value Alpha of the MAX node
+     * @param bate Evaluation higher limit value Bate of the MIN node
      * @return evaluate value
      */
     public int maxFunc(GameState gsNode, int depth, int alpha, int bate) {
         int evaluateValue = evaluateFun(gsNode);
         int bestValue = -100;
+        // Alpha pruning when the Bate value of the descendant node <= the
+        // alpha value of the ancestor node
         if (depth == 0 || bate <= alpha) {
             return evaluateValue;
         }
@@ -273,7 +281,7 @@ public class AIClient implements Runnable {
                 }
             }
         }
-        return evaluateValue;
+        return bestValue;
     }
 
 
@@ -287,6 +295,9 @@ public class AIClient implements Runnable {
     public int minFunc(GameState gsNode, int depth, int alpha, int bate) {
         int evaluateValue = evaluateFun(gsNode);
         int bestValue = +100;
+        // When the predetermined depth is reached, the search stops
+        // Bate pruning when the Alpha value of the descendant node >= the
+        // Bate value of the ancestor node
         if (depth == 0 || alpha >= bate) {
             return evaluateValue;
         }
@@ -299,6 +310,6 @@ public class AIClient implements Runnable {
                 }
             }
         }
-        return evaluateValue;
+        return bestValue;
     }
 }
