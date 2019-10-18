@@ -122,13 +122,7 @@ public class MyAgent implements Agent
     
 
     public int getMoveNum() {
-        MapInfo mapInfo = new MapInfo(w);
-        for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
-                System.out.print(mapInfo.maps[i][j] + " ");
-            }
-            System.out.println();
-        }
+
         return decideRandomMove();
     }
 }
@@ -139,37 +133,78 @@ class AStar {
     public final static int PATH = 2;
     public final static int DIRECT_VALUE = 10; // 横竖移动代价
 
+    public int[][] maps;
+    public int size;    // 4
+    public Node start;
+    public Node end;
+
     Queue<Node> openList = new PriorityQueue<>();
     List<Node> closeList = new ArrayList<>();
 
     /**
+     * Constructor for AStar, create maps from "World"
+     *
+     * @Param: [world] Wumpus World class
+     * @Param: [size] A* algorithm model
+     * @Param: [start] start node
+     * @Param: [end] end node
+     */
+    public AStar(World world, int size, Node start, Node end) {
+        this.maps = initMapInfo(world, size);
+        this.size = size;
+        this.start = start;
+        this.end = end;
+    }
+
+    // use to test A star algorithm, create maps by define
+    public AStar(int[][] maps, int size, Node start, Node end) {
+        this.maps = maps;
+        this.size = size;
+        this.start = start;
+        this.end = end;
+    }
+
+    /**
+     * Init maps for A* algorithm form World
+     * @return maps
+     */
+    private int[][] initMapInfo(World world, int size) {
+        int[][] maps = new int[size+1][size+1];
+        for (int i = 0; i < maps.length; i++) {
+            for (int j = 0; j < maps[i].length; j++) {
+                if (world.isUnknown(i, j) || world.hasPit(i, j) || world.hasWumpus(i, j)) {
+                    maps[i][j] = 1;
+                } else maps[i][j] = 0;
+            }
+        }
+        return maps;
+    }
+    /**
      * begin search algorithm
      *
-     * @Param: [mapInfo] map information
      */
-    public void start(MapInfo mapInfo) {
-        if (mapInfo == null) return;
+    public void start() {
         // clean
         openList.clear();
         closeList.clear();
 
-        openList.add(mapInfo.start);
-        moveNodes(mapInfo);
+        openList.add(start);
+        moveNodes();
     }
 
     /**
      * move current node
      */
-    private void moveNodes(MapInfo mapInfo) {
+    private void moveNodes() {
         while (!openList.isEmpty()) {
-            if (isPointInClose(mapInfo.end.point)) { // if search end
+            if (isPointInClose(end.point)) { // if search end
                 // TODO make along the path
-                drawPath(mapInfo.maps, mapInfo.end);
+                drawPath(maps, end);
                 break;
             }
             Node current = openList.poll();
             closeList.add(current);
-            addAllNeighborNodeToOpenList(mapInfo, current);
+            addAllNeighborNodeToOpenList(current);
         }
     }
 
@@ -209,25 +244,25 @@ class AStar {
     /**
      * add all neighbor node to open list
      */
-    private void addAllNeighborNodeToOpenList(MapInfo mapInfo, Node current) {
+    private void addAllNeighborNodeToOpenList(Node current) {
         int x = current.point.x;
         int y = current.point.y;
         // up
-        addNeighborNodeToOpenList(mapInfo, current, x, y - 1, DIRECT_VALUE);
+        addNeighborNodeToOpenList(current, x, y - 1, DIRECT_VALUE);
         // down
-        addNeighborNodeToOpenList(mapInfo, current, x, y + 1, DIRECT_VALUE);
+        addNeighborNodeToOpenList(current, x, y + 1, DIRECT_VALUE);
         // left
-        addNeighborNodeToOpenList(mapInfo, current, x - 1, y, DIRECT_VALUE);
+        addNeighborNodeToOpenList(current, x - 1, y, DIRECT_VALUE);
         // right
-        addNeighborNodeToOpenList(mapInfo, current, x + 1, y, DIRECT_VALUE);
+        addNeighborNodeToOpenList(current, x + 1, y, DIRECT_VALUE);
     }
 
     /**
      * add one neighbor node to open list
      */
-    private void addNeighborNodeToOpenList(MapInfo mapInfo, Node current, int x, int y, int value) {
-        if (canAddNodeToOpenList(mapInfo, x, y)) {
-            Node end = mapInfo.end;
+    private void addNeighborNodeToOpenList(Node current, int x, int y, int value) {
+        if (canAddNodeToOpenList(x, y)) {
+            Node end = this.end;
             Point point = new Point(x, y);
             int value_G = current.value_G + value;
             Node child = findNodeInOpenList(point);
@@ -277,15 +312,15 @@ class AStar {
     /**
      * Determine if the node can be add in the Open list
      */
-    private boolean canAddNodeToOpenList(MapInfo mapInfo, int x, int y) {
-        // is in the map
-        if (x < 0 || x >=mapInfo.size || y < 0 || y >= mapInfo.size)
+    private boolean canAddNodeToOpenList(int x, int y) {
+        // Is in the map
+        if (x < 0 || x >this.size || y < 0 || y > this.size) // size == 4
             return false;
         // Is there any obstacle?
         // TODO why is maps[y][x]?
-        if (mapInfo.maps[y][x] == WumpusOrPit)
+        if (this.maps[y][x] == WumpusOrPit)
             return false;
-        // is in close list?
+        // Is in close list?
         if(isPointInClose(x, y))
             return false;
         return true;
@@ -297,39 +332,6 @@ class AStar {
      */
     private int calcuValue_H(Point end, Point point) {
         return Math.abs(end.x - point.x) + Math.abs(end.y - point.y);
-    }
-}
-
-class MapInfo {
-    public int[][] maps;
-    public int size;
-    public Node start;
-    public Node end; // 最终结点
-
-    public MapInfo(int[][] maps, int size, Node start, Node end) {
-        this.maps = maps;
-        this.size = size;
-        this.start = start;
-        this.end = end;
-    }
-    public MapInfo(World world) {
-        this.maps = initMapInfo(world);
-    }
-
-    /**
-     * Init maps for A* algorithm form World
-     * @return maps
-     */
-    private int[][] initMapInfo(World world) {
-        int[][] maps = new int[5][5];
-        for (int i = 0; i < maps.length; i++) {
-            for (int j = 0; j < maps[i].length; j++) {
-                if (world.isUnknown(i, j) || world.hasPit(i, j) || world.hasWumpus(i, j)) {
-                    maps[i][j] = 1;
-                } else maps[i][j] = 0;
-            }
-        }
-        return maps;
     }
 }
 
