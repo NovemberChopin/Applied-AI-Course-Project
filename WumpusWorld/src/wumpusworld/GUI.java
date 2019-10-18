@@ -111,7 +111,7 @@ public class GUI implements ActionListener
     private void createWindow()
     {
         frame = new JFrame("Wumpus World");
-        frame.setSize(820, 640);
+        frame.setSize(850, 640);
         frame.getContentPane().setLayout(new FlowLayout());
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         
