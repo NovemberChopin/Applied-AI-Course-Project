@@ -15,7 +15,7 @@ public class MyAgent implements Agent
     Agent agent;
     private World w;
     int rnd;
-    private ArrayList KB;
+    private KnowledgeBase KB;
     /**
      * Creates a new instance of your solver agent.
      * 
@@ -122,8 +122,248 @@ public class MyAgent implements Agent
     
 
     public int getMoveNum() {
+        if (this.KB == null) {
+            this.KB = new KnowledgeBase();
+        }
+        this.KB.doPrecept(this.w);
 
         return decideRandomMove();
+    }
+}
+
+class KnowledgeBase {
+    private Vector<PreceptInfo> kb;
+
+    private Vector<PreceptInfo> openNodeKb;
+
+    /**
+     * AND logic
+     * e.g. S[1,1] = false; represent there are no Wumpus in [1, 2] and [2, 1]
+     * W[1, 2] = false and W[2, 1] = false
+     */
+    List<Point> wumpusAndLogic = new ArrayList<>();
+    List<Point> pitAndLogic = new ArrayList<>();
+    /**
+     * OR logic
+     * e.g. S[1,2] = true; represent there are a Wumpus in [1, 2]
+     */
+    List<List<Point>> wumpusOrLogics = new ArrayList<>();
+    List<Point> wumpusOrLogic = new ArrayList<>();
+    List<List<Point>> pitOrLogics = new ArrayList<>();
+    List<Point> pitOrLogic = new ArrayList<>();
+
+
+    public KnowledgeBase() {
+        kb = new Vector<PreceptInfo>();
+        openNodeKb = new Vector<PreceptInfo>();
+    }
+
+    public void doPrecept(World w) {
+        PreceptInfo current = new PreceptInfo(w);
+
+        // add current logic information and node information
+        addLogicInfo(current);
+        kb.add(current);
+
+        // add neighbor node logic information
+        for (Point point : current.getAllNeighborPoint(current.point)) {
+            PreceptInfo pi_temp = null;
+            if (!this.openNodeKb.contains(point)) {
+                pi_temp = new PreceptInfo(point);
+                if (!current.hasStench) {
+                    if(!this.wumpusAndLogic.contains(point))
+                        this.wumpusAndLogic.add(point);
+                }
+                if (!current.hasBreeze) {
+                    if (!this.pitAndLogic.contains(point))
+                        this.pitAndLogic.add(point);
+                }
+                // if current node don't have stench and breeze, the neighbor node don't have Wumpus and pit
+                if (!current.hasStench && !current.hasBreeze) {
+                    pi_temp.isSafe = true;
+                }
+                this.openNodeKb.add(pi_temp);
+            }
+        }
+    }
+
+    /**
+     * get all logic for current node
+     */
+    private void addLogicInfo(PreceptInfo pi) {
+        this.wumpusOrLogic.clear();
+        this.pitOrLogic.clear();
+
+        for (Point point : pi.getWumpusAndLogic()) {
+            if (!this.wumpusAndLogic.contains(point)) {
+                this.wumpusAndLogic.add(point);
+            }
+        }
+        for (Point point : pi.getPitAndLogic()) {
+            if (!this.pitAndLogic.contains(point)) {
+                this.pitAndLogic.add(point);
+            }
+        }
+        for (Point point : pi.getWumpusOrLogic()) {
+            if (!this.wumpusOrLogic.contains(point)) {
+                this.wumpusOrLogic.add(point);
+            }
+        }
+        if (this.wumpusOrLogic.size() > 0)
+            this.wumpusOrLogics.add(this.wumpusOrLogic);
+
+        for (Point point : pi.getPitOrLogic()) {
+            if (!this.pitOrLogic.contains(point)) {
+                this.pitOrLogic.add(point);
+            }
+        }
+        if (this.pitOrLogic.size() > 0)
+            this.pitOrLogics.add(this.pitOrLogic);
+    }
+
+    /**
+     * do reason from knowledge base
+     */
+    private void doReason() {
+        // try best to reason
+        for (List<Point> wumpusLogic : this.wumpusOrLogics) {
+            for (Point point : wumpusLogic) {
+                if (this.wumpusAndLogic.contains(point))
+                    wumpusLogic.remove(point);
+            }
+            if (wumpusLogic.size() == 1) {
+                // get a result
+                for (PreceptInfo pi : this.openNodeKb) {
+                    if (pi.point.equals(wumpusLogic.get(0))) {
+                        pi.hasWumpus = true;
+                        doReason();
+                    }
+                }
+            }
+        }
+        for (List<Point> pitLogic : this.pitOrLogics) {
+            for (Point point : pitLogic) {
+                if (this.pitAndLogic.contains(point))
+                    pitLogic.remove(point);
+            }
+            if (pitLogic.size() == 1) {
+                for (PreceptInfo pi : this.openNodeKb) {
+                    if (pi.point.equals(pitLogic.get(0))) {
+                        pi.hasPit = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Precept result
+ */
+class PreceptInfo {
+    public Point point;    // player's coordinate
+
+    public boolean hasWumpus = false;
+    public boolean hasStench = false;
+    public boolean hasPit = false;
+    public boolean hasBreeze = false;
+    public boolean hasGlitter = false;
+    public boolean hasVisited = false;
+    public boolean isSafe = false;
+
+    public PreceptInfo(World world) {
+        int x = world.getPlayerX();
+        int y = world.getPlayerY();
+        this.point = new Point(x, y);
+
+        this.hasWumpus = world.hasWumpus(x, y);
+        this.hasStench = world.hasStench(x, y);
+        this.hasPit = world.hasPit(x, y);
+        this.hasBreeze = world.hasBreeze(x, y);
+        this.hasGlitter = world.hasGlitter(x, y);
+        this.hasVisited = world.isVisited(x, y);
+        setSafe();
+    }
+
+    public PreceptInfo(Point point) {
+        this.point = point;
+    }
+
+    public void setSafe() {
+        if (this.hasWumpus || this.hasPit) {
+            isSafe = false;
+        } else isSafe = true;
+    }
+
+    public List<Point> getWumpusAndLogic() {
+        List<Point> points = new ArrayList<>();
+        // If there is no Wumpus here
+        if (!this.hasWumpus) {
+            points = getAllNeighborPoint(this.point);
+        }
+        return points;
+    }
+    public List<Point> getPitAndLogic() {
+        List<Point> points = new ArrayList<>();
+        // If there is no Pit here
+        if (!this.hasPit) {
+            points = getAllNeighborPoint(this.point);
+        }
+        return points;
+    }
+    public List<Point> getWumpusOrLogic() {
+        List<Point> points = new ArrayList<>();
+        // If there is a Wupus here
+        if (this.hasWumpus) {
+            points = getAllNeighborPoint(this.point);
+        }
+        return points;
+    }
+
+    public List<Point> getPitOrLogic() {
+        List<Point> points = new ArrayList<>();
+        // If there is a Pit here
+        if (this.hasPit) {
+            points = getAllNeighborPoint(this.point);
+        }
+        return points;
+    }
+
+    public List<Point> getAllNeighborPoint(Point point) {
+
+        List<Point> neighborPoints = new ArrayList<>();
+        Point point_temp = null;
+        // up
+        point_temp = getNeighborPoint(point, point.x, point.y - 1);
+        if ( point_temp!= null)
+            neighborPoints.add(point_temp);
+        // down
+        point_temp = getNeighborPoint(point, point.x, point.y + 1);
+        if ( point_temp!= null)
+            neighborPoints.add(point_temp);
+        // left
+        point_temp = getNeighborPoint(point, point.x - 1, point.y);
+        if ( point_temp!= null)
+            neighborPoints.add(point_temp);
+        // right
+        point_temp = getNeighborPoint(point, point.x + 1, point.y);
+        if ( point_temp!= null)
+            neighborPoints.add(point_temp);
+
+        return neighborPoints;
+    }
+    public Point getNeighborPoint(Point point, int x, int y) {
+        if (isPointInMaps(x, y)) {
+            return new Point(x, y);
+        }
+        return null;
+    }
+    public boolean isPointInMaps(int x, int y) {
+        if (x < 1 || x > 4 || y < 1 || y > 4) {
+            return false;
+        } else {
+            return true;
+        }
     }
 }
 
