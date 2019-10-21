@@ -129,8 +129,17 @@ public class MyAgent implements Agent
         Point current = new Point(w.getPlayerX(), w.getPlayerY());
         // 还在路上
         if (this.path.size() > 1) {
-            // 如果开始节点是当前节点
+            // If current point equal the start point
+            // this.path.get(0) represent start point
+            // this.path.get(1) represent end point
             if (current.equals(this.path.get(0))) {
+                // if next step is Wumpus, shoot it
+                if (this.path.get(1).equals(this.KB.Wumpus)) {
+                    adjustDirForShoot(this.path.get(0), this.path.get(1));
+                    // SHOOT
+                    w.doAction(World.A_SHOOT);
+                    this.KB.afterShoot();
+                }
                 rnd = getNum(current, this.path.get(1));
                 this.path.remove(0);
             } else
@@ -150,6 +159,27 @@ public class MyAgent implements Agent
         }
         return rnd;
 //        return decideRandomMove();
+    }
+
+    private void adjustDirForShoot(Point start, Point end) {
+        setDirToRight();
+        // if Wumpus is in down
+        if ((start.x == end.x) && (start.y == end.y + 1)) {
+            w.doAction(World.A_TURN_RIGHT);
+        }
+        // up
+        if ((start.x == end.x) && (start.y == end.y - 1)) {
+            w.doAction(World.A_TURN_LEFT);
+        }
+        // left
+        if ((start.x == end.x + 1) && (start.y == end.y)) {
+            w.doAction(World.A_TURN_RIGHT);
+            w.doAction(World.A_TURN_RIGHT);
+        }
+        // right
+        if ((start.x == end.x - 1) && (start.y == end.y)) {
+
+        }
     }
 
     /**
@@ -199,7 +229,7 @@ public class MyAgent implements Agent
 
         Node start = new Node(w.getPlayerX(), w.getPlayerY());  // get start Node
         Node end = new Node(KB.makeChoose().x, KB.makeChoose().y); // get end node
-        AStar aster = new AStar(this.w, 4, start, end, this.KB.openNodeKb); // init A* algorithm
+        AStar aster = new AStar(this.w, 4, start, end, end.point); // init A* algorithm
         aster.start();  // start search
         return aster.pathOrder;
     }
@@ -207,7 +237,6 @@ public class MyAgent implements Agent
 
 class KnowledgeBase {
     public Vector<PreceptInfo> kb;
-
     public Vector<PreceptInfo> openNodeKb;
 
     /**
@@ -224,6 +253,8 @@ class KnowledgeBase {
     List<List<Point>> wumpusOrLogics = new ArrayList<>();
     List<List<Point>> pitOrLogics = new ArrayList<>();
 
+    public Point Wumpus = null;
+    public List<Point> Pits = null;
 
     public KnowledgeBase() {
         kb = new Vector<PreceptInfo>();
@@ -350,12 +381,41 @@ class KnowledgeBase {
                     for (PreceptInfo pi : this.openNodeKb)
                         if (pi.point.equals(wumpusLogic.get(0))) {
                             pi.hasWumpus = 1;
-                            doReason();
                         }
+
+                    // Save Wumpus's coordinate
+                    if (this.Wumpus == null)
+                        this.Wumpus = new Point(wumpusLogic.get(0).x, wumpusLogic.get(0).y);
                 }
             }
             updateOrLogics(this.wumpusOrLogics);
         }
+
+        // if exist two wumpusOrLogic contain a same point
+        if (this.wumpusOrLogics.size() == 2) {
+            for (PreceptInfo pi :this.openNodeKb) {
+                if (this.wumpusOrLogics.get(0).contains(pi.point)
+                        && this.wumpusOrLogics.get(1).contains(pi.point)) {
+                    // Wumpus must in this point
+                    pi.hasWumpus = 1;
+                    pi.isSafe = 0;
+                    if (this.Wumpus == null) {
+                        this.Wumpus = new Point(pi.point.x, pi.point.y);
+                    }
+                    this.wumpusOrLogics.clear();
+                    break;
+                }
+            }
+            // Set hasWumpus = 0 for neighbor point except wumpus's point
+            for (PreceptInfo pi :this.openNodeKb) {
+                if (pi.hasWumpus == 2) {
+                    pi.hasWumpus = 0;
+                    if (pi.hasWumpus == 0 && pi.hasPit == 0)
+                        pi.isSafe = 1;
+                }
+            }
+        }
+
 
         // If there are not sure coordinate of Pit, reasoning
         if (this.pitOrLogics.size() > 0) {
@@ -372,10 +432,10 @@ class KnowledgeBase {
                     for (PreceptInfo pi : this.openNodeKb)
                         if (pi.point.equals(pitLogic.get(0))) {
                             pi.hasPit = 1;
-                            doReason();
                         }
                 }
             }
+
             updateOrLogics(this.pitOrLogics);
         }
     }
@@ -397,19 +457,32 @@ class KnowledgeBase {
         }
 
     }
+    public void afterShoot() {
+        for (PreceptInfo pi : this.openNodeKb) {
+            if (pi.point.equals(this.Wumpus)) {
+                pi.hasWumpus = 0;
+                if (pi.hasWumpus == 0 && pi.hasPit == 0)
+                    pi.isSafe = 1;
+            }
+        }
+        this.Wumpus = null;
+    }
     /**
      * Find the node we want to access
      * @return A point as end node for A* algorithm
      */
     public Point makeChoose() {
-        doReason();
         if (this.openNodeKb.size() > 0) {
             for (PreceptInfo pi : this.openNodeKb) {
                 if (pi.isSafe == 1)
                     return pi.point;
             }
         }
-        // If have no safe node, get the first element
+        if (this.Wumpus != null) {
+            // If no safe point and have Wumpus's coordinate, shoot it
+            return this.Wumpus;
+        }
+        // If have no safe node and don't know where is Wumpus, get the first element
         return this.openNodeKb.firstElement().point;
     }
 }
@@ -513,8 +586,8 @@ class AStar {
      * @Param: [start] start node
      * @Param: [end] end node
      */
-    public AStar(World world, int size, Node start, Node end, Vector<PreceptInfo> pis) {
-        this.maps = initMapInfo(world, size, pis);
+    public AStar(World world, int size, Node start, Node end, Point point) {
+        this.maps = initMapInfo(world, size, point);
         this.size = size;
         this.start = start;
         this.end = end;
@@ -532,7 +605,7 @@ class AStar {
      * Init maps for A* algorithm form World
      * @return maps
      */
-    private int[][] initMapInfo(World world, int size, Vector<PreceptInfo> openNodeList) {
+    private int[][] initMapInfo(World world, int size, Point point) {
         int[][] maps = new int[size+1][size+1];
         for (int i = 0; i < maps.length; i++) {
             for (int j = 0; j < maps[i].length; j++) {
@@ -540,11 +613,8 @@ class AStar {
                     maps[i][j] = 1;
                 } else
                     maps[i][j] = 0;
-                for (PreceptInfo pi : openNodeList) {
-                    if (pi.point.x == i && pi.point.y == j) {
-                        maps[i][j] = 0;
-                    }
-                }
+                if (point.y == i && point.x == j)
+                    maps[i][j] = 0;
             }
         }
         for (int i = 1; i < maps.length; i++) {
