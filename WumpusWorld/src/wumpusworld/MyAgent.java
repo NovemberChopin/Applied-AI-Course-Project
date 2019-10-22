@@ -127,38 +127,45 @@ public class MyAgent implements Agent
         if (this.path == null)
             this.path = new ArrayList<>();
         Point current = new Point(w.getPlayerX(), w.getPlayerY());
-        // 还在路上
+
+        /**
+         * The current path has not yet reached the end
+         */
         if (this.path.size() > 1) {
-            // If current point equal the start point
-            // this.path.get(0) represent start point
-            // this.path.get(1) represent end point
-            if (current.equals(this.path.get(0))) {
-                // if next step is Wumpus, shoot it
-                if (this.path.get(1).equals(this.KB.Wumpus)) {
-                    adjustDirForShoot(this.path.get(0), this.path.get(1));
-                    // SHOOT
-                    w.doAction(World.A_SHOOT);
-                    this.KB.afterShoot();
-                }
-                rnd = getNum(current, this.path.get(1));
-                this.path.remove(0);
-            } else
-                System.out.println("Error: current point is not equal the start point");
-        } else {    // 已到达重终点，生成下一条路
+            rnd = beforeMove(current);
+        } else {
+            /**
+             * reached end point, create a new path
+             */
             Stack<Point> p = getPath();
             this.path.clear();
             int length = p.size();
             for (int i = 0; i < length; i++) {
                 this.path.add(p.pop());
             }
-            if (current.equals(this.path.get(0))) {
-                rnd = getNum(current, this.path.get(1));
-                this.path.remove(0);
-            } else
-                System.out.println("Error: current point is not equal the start point");
+            rnd = beforeMove(current);
         }
         return rnd;
-//        return decideRandomMove();
+    }
+
+    private int beforeMove(Point current) {
+        // If current point equal the start point
+        // this.path.get(0) represent start point
+        // this.path.get(1) represent end point
+        if (current.equals(this.path.get(0))) {
+            // if next step is Wumpus, shoot it
+            if (this.path.get(1).equals(this.KB.Wumpus)) {
+                adjustDirForShoot(this.path.get(0), this.path.get(1));
+                // SHOOT
+                System.out.println("****************Shoot Wumpus");
+                w.doAction(World.A_SHOOT);
+                this.KB.afterShoot(w);
+            }
+            rnd = getNum(current, this.path.get(1));
+            this.path.remove(0);
+        } else
+            System.out.println("Error: current point is not equal the start point");
+        return rnd;
     }
 
     private void adjustDirForShoot(Point start, Point end) {
@@ -228,8 +235,9 @@ public class MyAgent implements Agent
         this.KB.doReason();
 
         Node start = new Node(w.getPlayerX(), w.getPlayerY());  // get start Node
-        Node end = new Node(KB.makeChoose().x, KB.makeChoose().y); // get end node
-        AStar aster = new AStar(this.w, 4, start, end, end.point); // init A* algorithm
+        Point point = KB.makeChoose();
+        Node end = new Node(point.x, point.y); // get end node
+        AStar aster = new AStar(this.w, 4, start, end); // init A* algorithm
         aster.start();  // start search
         return aster.pathOrder;
     }
@@ -281,7 +289,8 @@ class KnowledgeBase {
                 this.pitAndLogic.add(current.point);
         }
         // add current logic information and node information
-        addLogicInfo(current);
+        addWumpusLogicInfo(current);
+        addPitLogicInfo(current);
         kb.add(current);
 
         // add neighbor node logic information
@@ -323,11 +332,10 @@ class KnowledgeBase {
     }
 
     /**
-     * get all logic for current node
+     * get all Wumpus logic for current node
      */
-    private void addLogicInfo(PreceptInfo pi) {
+    private void addWumpusLogicInfo(PreceptInfo pi) {
         List<Point> wupusOr = new ArrayList<>();
-        List<Point> pitOr = new ArrayList<>();
 
         List<Point> points = pi.getAllNeighborPoint(pi.point);
 
@@ -346,11 +354,22 @@ class KnowledgeBase {
                 }
         }
 
+
+    }
+
+    /**
+     * get all Pit logic for current node
+     */
+    private void addPitLogicInfo(PreceptInfo pi) {
+        List<Point> pitOr = new ArrayList<>();
+        List<Point> points = pi.getAllNeighborPoint(pi.point);
+
         if (pi.hasBreeze == 1) {
-            for (Point point : points)
+            for (Point point : points) {
                 if (!pitOr.contains(point)) {
                     pitOr.add(point);
                 }
+            }
             if (pitOr.size() > 0)
                 this.pitOrLogics.add(pitOr);
         } else {
@@ -407,7 +426,7 @@ class KnowledgeBase {
                 }
             }
             // Set hasWumpus = 0 for neighbor point except wumpus's point
-            for (PreceptInfo pi :this.openNodeKb) {
+            for (PreceptInfo pi : this.openNodeKb) {
                 if (pi.hasWumpus == 2) {
                     pi.hasWumpus = 0;
                     if (pi.hasWumpus == 0 && pi.hasPit == 0)
@@ -427,17 +446,44 @@ class KnowledgeBase {
                         pitLogic.remove(point);
                     }
                 }
-                // If inferring the location of a Wumpus
+                // If inferring the location of a Pit
                 if (pitLogic.size() == 1) {
                     for (PreceptInfo pi : this.openNodeKb)
                         if (pi.point.equals(pitLogic.get(0))) {
                             pi.hasPit = 1;
+                            pi.isSafe = 0;
+                            if (this.Pits == null)
+                                this.Pits = new ArrayList<>();
+                            this.Pits.add(pi.point);
                         }
                 }
             }
 
             updateOrLogics(this.pitOrLogics);
         }
+
+        // If exist two pitOrLogic contain a same point
+//        while (this.pitOrLogics.size() >= 2) {
+//            int len = this.pitOrLogics.size();
+//            for (PreceptInfo pi : this.openNodeKb) {
+//                int i = 0;
+//                for (int j = 0; j < len; j++) {
+//                    if (this.pitOrLogics.get(j).contains(pi.point)) {
+//                        i++;
+//                    }
+//                }
+//                // Determine the location of a PI
+//                if (i >= 2) {
+//                    pi.hasPit = 1;
+//                    pi.isSafe = 0;
+//                    if (this.Pits == null)
+//                        this.Pits = new ArrayList<>();
+//                    this.Pits.add(pi.point);
+//
+//                    this.pitOrLogics.removeIf(logic -> logic.contains(pi.point));
+//                }
+//            }
+//        }
     }
 
     public void updateOrLogics(List<List<Point>> logics) {
@@ -457,15 +503,45 @@ class KnowledgeBase {
         }
 
     }
-    public void afterShoot() {
-        for (PreceptInfo pi : this.openNodeKb) {
-            if (pi.point.equals(this.Wumpus)) {
+    private boolean sucKillWumpus(World w, int x, int y) {
+
+        // If current point has no stench, success
+        if (!w.hasStench(x, y))
+            return true;
+        // If current point has stench, kill failure
+        return false;
+    }
+    public void afterShoot(World w) {
+        int x = w.getPlayerX();
+        int y = w.getPlayerY();
+        // check kill Wumpus or not
+        if (sucKillWumpus(w, x, y)) {
+            // success,
+            for (PreceptInfo pi : this.openNodeKb) {
                 pi.hasWumpus = 0;
                 if (pi.hasWumpus == 0 && pi.hasPit == 0)
                     pi.isSafe = 1;
             }
+            for (PreceptInfo pi : this.kb) {
+                pi.hasStench = 0;
+                if (pi.hasWumpus == 0 && pi.hasPit == 0)
+                    pi.isSafe = 1;
+            }
+
+            // delete all wumpus logic, and add again
+            this.wumpusAndLogic.clear();
+            this.wumpusOrLogics.clear();
+            for (PreceptInfo pi : this.kb) {
+                if (pi.point.equals(new Point(x, y))) {
+                    addWumpusLogicInfo(pi);
+                    break;
+                }
+            }
+            this.Wumpus = null;
+        } else {
+            // failure
+            this.Wumpus = null;
         }
-        this.Wumpus = null;
     }
     /**
      * Find the node we want to access
@@ -481,8 +557,21 @@ class KnowledgeBase {
         if (this.Wumpus != null) {
             // If no safe point and have Wumpus's coordinate, shoot it
             return this.Wumpus;
+        } else if (this.kb.size() == 1 && this.openNodeKb.size() == 2 && this.kb.get(0).hasStench == 1){
+            // condition 4
+            Point point = this.openNodeKb.get(0).point;
+            this.Wumpus = new Point(point.x, point.y);
+            return point;
         }
-        // If have no safe node and don't know where is Wumpus, get the first element
+
+        // Select the coordinates of the PIT not found
+        if (this.Pits != null)
+            for (PreceptInfo pi : this.openNodeKb) {
+                if (!this.Pits.contains(pi.point))
+                    return pi.point;
+            }
+        // If have no safe node and don't know where is Wumpus
+        // and PIT exists in all open coordinates, I have no idea and choose the first element
         return this.openNodeKb.firstElement().point;
     }
 }
@@ -586,8 +675,8 @@ class AStar {
      * @Param: [start] start node
      * @Param: [end] end node
      */
-    public AStar(World world, int size, Node start, Node end, Point point) {
-        this.maps = initMapInfo(world, size, point);
+    public AStar(World world, int size, Node start, Node end) {
+        this.maps = initMapInfo(world, size, end);
         this.size = size;
         this.start = start;
         this.end = end;
@@ -605,24 +694,24 @@ class AStar {
      * Init maps for A* algorithm form World
      * @return maps
      */
-    private int[][] initMapInfo(World world, int size, Point point) {
+    private int[][] initMapInfo(World world, int size, Node end) {
         int[][] maps = new int[size+1][size+1];
         for (int i = 0; i < maps.length; i++) {
             for (int j = 0; j < maps[i].length; j++) {
-                if (world.hasPit(i, j) || world.hasWumpus(i, j) || world.isUnknown(i, j)) {
-                    maps[i][j] = 1;
-                } else
-                    maps[i][j] = 0;
-                if (point.y == i && point.x == j)
-                    maps[i][j] = 0;
+                if (world.hasPit(i, j) || world.isUnknown(i, j)) {
+                    maps[j][i] = 1;
+                } else maps[j][i] = 0;
+                if (end.point.y == j && end.point.x == i)
+                    maps[j][i] = 0;
             }
         }
-        for (int i = 1; i < maps.length; i++) {
-            for (int j = 1; j < maps[i].length; j++) {
-                System.out.print(maps[i][j] + " ");
-            }
-            System.out.println();
-        }
+//        System.out.println("************");
+//        for (int i = 1; i < maps.length; i++) {
+//            for (int j = 1; j < maps[i].length; j++) {
+//                System.out.print(maps[j][i] + " ");
+//            }
+//            System.out.println();
+//        }
         return maps;
     }
     /**
@@ -814,6 +903,10 @@ class Point {
     public Point(int x, int y) {
         this.x = x;
         this.y = y;
+    }
+    public Point() {
+        this.x = 1;
+        this.y = 1;
     }
 
     @Override
