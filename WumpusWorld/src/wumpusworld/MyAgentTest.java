@@ -26,8 +26,6 @@ class MyAgentTest {
             }
             System.out.println();
         }
-
-        System.out.println(a.pathOrder.pop().x);
     }
     @org.junit.jupiter.api.Test
     void testStack() {

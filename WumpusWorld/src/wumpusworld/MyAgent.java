@@ -137,11 +137,11 @@ public class MyAgent implements Agent
             /**
              * reached end point, create a new path
              */
-            Stack<Point> p = getPath();
+            List<Point> p = getPath();
             this.path.clear();
             int length = p.size();
-            for (int i = 0; i < length; i++) {
-                this.path.add(p.pop());
+            for (int i = length - 1; i >= 0; i--) {
+                this.path.add(p.get(i));
             }
             rnd = beforeMove(current);
         }
@@ -149,22 +149,27 @@ public class MyAgent implements Agent
     }
 
     private int beforeMove(Point current) {
-        // If current point equal the start point
-        // this.path.get(0) represent start point
-        // this.path.get(1) represent end point
-        if (current.equals(this.path.get(0))) {
-            // if next step is Wumpus, shoot it
-            if (this.path.get(1).equals(this.KB.Wumpus)) {
-                adjustDirForShoot(this.path.get(0), this.path.get(1));
-                // SHOOT
-                System.out.println("****************Shoot Wumpus");
-                w.doAction(World.A_SHOOT);
-                this.KB.afterShoot(w);
+        if (this.w.hasGold()) {
+            return 0;
+        } else {
+            // If current point equal the start point
+            // this.path.get(0) represent start point
+            // this.path.get(1) represent end point
+            if (current.equals(this.path.get(0))) {
+                // if next step is Wumpus, shoot it
+                if (this.path.get(1).equals(this.KB.Wumpus)) {
+                    adjustDirForShoot(this.path.get(0), this.path.get(1));
+                    // SHOOT
+                    System.out.println("**** Shoot Wumpus ****");
+                    w.doAction(World.A_SHOOT);
+                    this.KB.afterShoot(w);
+                }
+                rnd = getNum(current, this.path.get(1));
+                this.path.remove(0);
+            } else {
+                System.out.println("current is not start node");
             }
-            rnd = getNum(current, this.path.get(1));
-            this.path.remove(0);
-        } else
-            System.out.println("Error: current point is not equal the start point");
+        }
         return rnd;
     }
 
@@ -227,7 +232,7 @@ public class MyAgent implements Agent
         return rnd;
     }
 
-    public Stack<Point> getPath() {
+    public List<Point> getPath() {
         if (this.KB == null) {
             this.KB = new KnowledgeBase();
         }
@@ -235,7 +240,7 @@ public class MyAgent implements Agent
         this.KB.doReason();
 
         Node start = new Node(w.getPlayerX(), w.getPlayerY());  // get start Node
-        Point point = KB.makeChoose();
+        Point point = KB.makeChoose(w);
         Node end = new Node(point.x, point.y); // get end node
         AStar aster = new AStar(this.w, 4, start, end); // init A* algorithm
         aster.start();  // start search
@@ -543,18 +548,41 @@ class KnowledgeBase {
             this.Wumpus = null;
         }
     }
+
+    /**
+     * Call A* algorithm calculate the PATH base on end Node
+     * @return path
+     */
+    private boolean pathIsOK(World world, Point end) {
+        int x = world.getPlayerX();
+        int y = world.getPlayerY();
+        Node start = new Node(x, y);
+        AStar aster = new AStar(world, 4, start, new Node(end.x, end.y));
+        aster.start();
+        List<Point> path = aster.pathOrder;
+        path.removeIf(point -> point.equals(new Point(x, y)));
+        for (PreceptInfo pi : this.kb) {
+            if (pi.hasPit == 1) {
+                // if path contains a Pit point
+                if (path.contains(pi.point)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
     /**
      * Find the node we want to access
      * @return A point as end node for A* algorithm
      */
-    public Point makeChoose() {
+    public Point makeChoose(World w) {
         if (this.openNodeKb.size() > 0) {
             for (PreceptInfo pi : this.openNodeKb) {
-                if (pi.isSafe == 1)
+                if (pi.isSafe == 1 && pathIsOK(w, pi.point))
                     return pi.point;
             }
         }
-        if (this.Wumpus != null) {
+        if (this.Wumpus != null && pathIsOK(w, this.Wumpus)) {
             // If no safe point and have Wumpus's coordinate, shoot it
             return this.Wumpus;
         } else if (this.kb.size() == 1 && this.openNodeKb.size() == 2 && this.kb.get(0).hasStench == 1){
@@ -567,7 +595,7 @@ class KnowledgeBase {
         // Select the coordinates of the PIT not found
         if (this.Pits != null)
             for (PreceptInfo pi : this.openNodeKb) {
-                if (!this.Pits.contains(pi.point))
+                if (!this.Pits.contains(pi.point) && pathIsOK(w, pi.point))
                     return pi.point;
             }
         // If have no safe node and don't know where is Wumpus
@@ -662,7 +690,7 @@ class AStar {
     public Node start;
     public Node end;
 
-    public Stack<Point> pathOrder = new Stack<>();
+    public List<Point> pathOrder = new ArrayList<>();
 
     Queue<Node> openList = new PriorityQueue<>();
     List<Node> closeList = new ArrayList<>();
@@ -698,7 +726,7 @@ class AStar {
         int[][] maps = new int[size+1][size+1];
         for (int i = 0; i < maps.length; i++) {
             for (int j = 0; j < maps[i].length; j++) {
-                if (world.hasPit(i, j) || world.isUnknown(i, j)) {
+                if ( world.isUnknown(i, j)) {
                     maps[j][i] = 1;
                 } else maps[j][i] = 0;
                 if (end.point.y == j && end.point.x == i)
@@ -708,7 +736,7 @@ class AStar {
 //        System.out.println("************");
 //        for (int i = 1; i < maps.length; i++) {
 //            for (int j = 1; j < maps[i].length; j++) {
-//                System.out.print(maps[j][i] + " ");
+//                System.out.print(maps[i][j] + " ");
 //            }
 //            System.out.println();
 //        }
@@ -747,10 +775,10 @@ class AStar {
      */
     private void drawPath(int[][] maps, Node end) {
         if(end == null || maps==null) return;
-        System.out.println("All cost：" + end.value_G);
+        // System.out.println("All cost：" + end.value_G);
         while (end != null) {
             Point point = end.point;
-            this.pathOrder.push(point);
+            this.pathOrder.add(point);
             maps[point.y][point.x] = PATH;
             end = end.parent;
         }
