@@ -148,6 +148,9 @@ public class MyAgent implements Agent
         return rnd;
     }
 
+    /**
+     * before make a move, judge next point is Wumpus or not, if is, shoot it
+     */
     private int beforeMove(Point current) {
         if (this.w.hasGold()) {
             return 0;
@@ -166,9 +169,7 @@ public class MyAgent implements Agent
                 }
                 rnd = getNum(current, this.path.get(1));
                 this.path.remove(0);
-            } else {
-                System.out.println("current is not start node");
-            }
+            } else System.out.println("current is not start node");
         }
         return rnd;
     }
@@ -189,9 +190,7 @@ public class MyAgent implements Agent
             w.doAction(World.A_TURN_RIGHT);
         }
         // right
-        if ((start.x == end.x - 1) && (start.y == end.y)) {
-
-        }
+        if ((start.x == end.x - 1) && (start.y == end.y)) {}
     }
 
     /**
@@ -210,6 +209,7 @@ public class MyAgent implements Agent
         }
     }
 
+    // get direct number
     public int getNum(Point current, Point nextPoint) {
         setDirToRight();
         int rnd = 0;
@@ -232,6 +232,9 @@ public class MyAgent implements Agent
         return rnd;
     }
 
+    /**
+     * call A star algorithm get path
+     */
     public List<Point> getPath() {
         if (this.KB == null) {
             this.KB = new KnowledgeBase();
@@ -274,7 +277,9 @@ class KnowledgeBase {
         openNodeKb = new Vector<PreceptInfo>();
     }
 
-
+    /**
+     * create Knowledge base for current point
+     */
     public void createKB(World w) {
         PreceptInfo current = new PreceptInfo(w);
         // If have gold
@@ -305,34 +310,26 @@ class KnowledgeBase {
                 pi_temp = new PreceptInfo(point);
                 if (current.hasStench == 1) {
                     pi_temp.isSafe = 0;
-                } else {
-                    pi_temp.hasWumpus = 0;
-                }
+                } else pi_temp.hasWumpus = 0;
 
                 if (current.hasBreeze == 1) {
                     pi_temp.isSafe = 0;
-                } else {
-                    pi_temp.hasPit = 0;
-                }
+                } else pi_temp.hasPit = 0;
 
                 // if current node don't have stench and breeze, the neighbor node don't have Wumpus and pit
                 if (current.hasStench == 0 && current.hasBreeze == 0) {
                     pi_temp.isSafe = 1;
                 }
-                pi_temp.hasVisited = 0;
-
                 this.openNodeKb.add(pi_temp);
             }
         }
-
     }
 
     private boolean isPointInKB(Vector<PreceptInfo> pis, Point point) {
-        for (PreceptInfo pi : pis) {
+        for (PreceptInfo pi : pis)
             if (pi.point.equals(point)) {
                 return true;
             }
-        }
         return false;
     }
 
@@ -358,8 +355,6 @@ class KnowledgeBase {
                     this.wumpusAndLogic.add(point);
                 }
         }
-
-
     }
 
     /**
@@ -495,6 +490,9 @@ class KnowledgeBase {
         logics.removeIf(logic -> logic.size() == 1);
     }
 
+    /**
+     * If we reasoned out Wumpus, update OpenNodeKb
+     */
     private void updataOpenNodeKb(Vector<PreceptInfo> openList, Point point, String type) {
         for (PreceptInfo pi : openList) {
             if (pi.point.equals(point)) {
@@ -506,10 +504,9 @@ class KnowledgeBase {
             if (pi.hasWumpus == 0 && pi.hasPit == 0)
                 pi.isSafe = 1;
         }
-
     }
-    private boolean sucKillWumpus(World w, int x, int y) {
 
+    private boolean isSucKillWumpus(World w, int x, int y) {
         // If current point has no stench, success
         if (!w.hasStench(x, y))
             return true;
@@ -520,7 +517,7 @@ class KnowledgeBase {
         int x = w.getPlayerX();
         int y = w.getPlayerY();
         // check kill Wumpus or not
-        if (sucKillWumpus(w, x, y)) {
+        if (isSucKillWumpus(w, x, y)) {
             // success,
             for (PreceptInfo pi : this.openNodeKb) {
                 pi.hasWumpus = 0;
@@ -536,6 +533,7 @@ class KnowledgeBase {
             // delete all wumpus logic, and add again
             this.wumpusAndLogic.clear();
             this.wumpusOrLogics.clear();
+            // update current point logic
             for (PreceptInfo pi : this.kb) {
                 if (pi.point.equals(new Point(x, y))) {
                     addWumpusLogicInfo(pi);
@@ -545,13 +543,21 @@ class KnowledgeBase {
             this.Wumpus = null;
         } else {
             // failure
-            this.Wumpus = null;
+            if (this.openNodeKb.size() == 2) {
+                for (PreceptInfo pi : this.openNodeKb)
+                    if (!pi.point.equals(new Point(x, y))) {
+                        pi.hasWumpus = 1;
+                        this.Wumpus = pi.point;
+                    }
+            } else {
+                this.Wumpus = null;
+            }
         }
     }
 
     /**
      * Call A* algorithm calculate the PATH base on end Node
-     * @return path
+     * @return true if path not contains Pit point
      */
     private boolean pathIsOK(World world, Point end) {
         int x = world.getPlayerX();
@@ -582,14 +588,16 @@ class KnowledgeBase {
                     return pi.point;
             }
         }
-        if (this.Wumpus != null && pathIsOK(w, this.Wumpus)) {
-            // If no safe point and have Wumpus's coordinate, shoot it
-            return this.Wumpus;
-        } else if (this.kb.size() == 1 && this.openNodeKb.size() == 2 && this.kb.get(0).hasStench == 1){
-            // condition 4
-            Point point = this.openNodeKb.get(0).point;
-            this.Wumpus = new Point(point.x, point.y);
-            return point;
+        if (w.hasArrow()) {
+            if (this.Wumpus != null && pathIsOK(w, this.Wumpus)) {
+                // If no safe point and have Wumpus's coordinate, shoot it
+                return this.Wumpus;
+            } else if (this.kb.size() == 1 && this.openNodeKb.size() == 2 && this.kb.get(0).hasStench == 1){
+                // condition 4
+                Point point = this.openNodeKb.get(0).point;
+                this.Wumpus = new Point(point.x, point.y);
+                return point;
+            }
         }
 
         // Select the coordinates of the PIT not found
@@ -607,14 +615,13 @@ class KnowledgeBase {
 class PreceptInfo {
     public Point point;    // player's coordinate
     /**
-     * 2: not set 1: true 0: false
+     * 2: not set; 1: true; 0: false
      */
     public int hasWumpus = 2;
     public int hasStench = 2;
     public int hasPit = 2;
     public int hasBreeze = 2;
     public int hasGlitter = 2;
-    public int hasVisited = 2;
     public int isSafe = 2;
 
     public PreceptInfo(World world) {
@@ -626,7 +633,6 @@ class PreceptInfo {
         this.hasPit = world.hasPit(x, y) == true ? 1: 0;
         this.hasBreeze = world.hasBreeze(x, y) == true ? 1: 0;
         this.hasGlitter = world.hasGlitter(x, y) == true ? 1: 0;
-        this.hasVisited = world.isVisited(x, y) == true ? 1: 0;
         setSafe();
     }
 
@@ -640,31 +646,30 @@ class PreceptInfo {
         } else isSafe = 1;
     }
 
-
     public List<Point> getAllNeighborPoint(Point point) {
 
         List<Point> neighborPoints = new ArrayList<>();
         Point point_temp = null;
         // up
-        point_temp = getNeighborPoint(point, point.x, point.y - 1);
+        point_temp = getNeighborPoint(point.x, point.y - 1);
         if ( point_temp!= null)
             neighborPoints.add(point_temp);
         // down
-        point_temp = getNeighborPoint(point, point.x, point.y + 1);
+        point_temp = getNeighborPoint(point.x, point.y + 1);
         if ( point_temp!= null)
             neighborPoints.add(point_temp);
         // left
-        point_temp = getNeighborPoint(point, point.x - 1, point.y);
+        point_temp = getNeighborPoint(point.x - 1, point.y);
         if ( point_temp!= null)
             neighborPoints.add(point_temp);
         // right
-        point_temp = getNeighborPoint(point, point.x + 1, point.y);
+        point_temp = getNeighborPoint(point.x + 1, point.y);
         if ( point_temp!= null)
             neighborPoints.add(point_temp);
 
         return neighborPoints;
     }
-    public Point getNeighborPoint(Point point, int x, int y) {
+    public Point getNeighborPoint(int x, int y) {
         if (isPointInMaps(x, y)) {
             return new Point(x, y);
         }
@@ -673,9 +678,7 @@ class PreceptInfo {
     public boolean isPointInMaps(int x, int y) {
         if (x < 1 || x > 4 || y < 1 || y > 4) {
             return false;
-        } else {
-            return true;
-        }
+        } else return true;
     }
 }
 
@@ -683,7 +686,7 @@ class AStar {
     // maps model
     public final static int WumpusOrPit = 1;
     public final static int PATH = 2;
-    public final static int DIRECT_VALUE = 10; // 横竖移动代价
+    public final static int DIRECT_VALUE = 10; // Horizontal and vertical movement cost
 
     public int[][] maps;
     public int size;    // 4
@@ -691,7 +694,7 @@ class AStar {
     public Node end;
 
     public List<Point> pathOrder = new ArrayList<>();
-
+    // The head of the PriorityQueue queue refers to the smallest element of the collation
     Queue<Node> openList = new PriorityQueue<>();
     List<Node> closeList = new ArrayList<>();
 
@@ -744,7 +747,6 @@ class AStar {
     }
     /**
      * begin search algorithm
-     *
      */
     public void start() {
         // clean
@@ -879,7 +881,6 @@ class AStar {
         if (x < 0 || x >this.size || y < 0 || y > this.size) // size == 4
             return false;
         // Is there any obstacle?
-        // TODO why is maps[y][x]?
         if (this.maps[y][x] == WumpusOrPit)
             return false;
         // Is in close list?
@@ -898,10 +899,10 @@ class AStar {
 }
 
 class Node implements Comparable<Node> {
-    public Point point; // 坐标
-    public Node parent; // 父结点
-    public int value_G; // G：是个准确的值，是起点到当前结点的代价
-    public int value_H; // H：是个估值，当前结点到目的结点的估计代价
+    public Point point; // coordinate
+    public Node parent; // father node
+    public int value_G; // G：Is an accurate value, the cost of the starting point to the current node
+    public int value_H; // H：Is an estimate, the estimated cost of the current node to the destination node
 
     public Node(int x, int y) {
         this.point = new Point(x, y);
@@ -914,6 +915,9 @@ class Node implements Comparable<Node> {
         value_H = h;
     }
 
+    /**
+     * Custom priority queue collation
+     */
     @Override
     public int compareTo(Node o) {
         if (o == null) return -1;
@@ -931,10 +935,6 @@ class Point {
     public Point(int x, int y) {
         this.x = x;
         this.y = y;
-    }
-    public Point() {
-        this.x = 1;
-        this.y = 1;
     }
 
     @Override
