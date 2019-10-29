@@ -9,8 +9,8 @@ import java.util.Vector;
 /**
  * GUI for the Wumpus World. Only supports worlds of 
  * size 4.
- * 
- * @author Johan Hagelbäck
+ *
+ * @author Johan Hagelb盲ck
  */
 public class GUI implements ActionListener
 {
@@ -23,7 +23,7 @@ public class GUI implements ActionListener
     private JPanel[][] blocks;
     private JComboBox mapList;
     private Vector<WorldMap> maps;
-    
+
     private ImageIcon l_breeze;
     private ImageIcon l_stench;
     private ImageIcon l_pit;
@@ -33,7 +33,7 @@ public class GUI implements ActionListener
     private ImageIcon l_player_down;
     private ImageIcon l_player_left;
     private ImageIcon l_player_right;
-    
+
     /**
      * Creates and start the GUI.
      */
@@ -44,7 +44,7 @@ public class GUI implements ActionListener
             JOptionPane.showMessageDialog(null, "Unable to start GUI. Missing icons.", "Error", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
-        
+
         MapReader mr = new MapReader();
         maps = mr.readMaps();
         if (maps.size() > 0)
@@ -55,7 +55,7 @@ public class GUI implements ActionListener
         {
             w = MapGenerator.getRandomMap((int)System.currentTimeMillis()).generateWorld();
         }
-        
+
         l_breeze = new ImageIcon("gfx/B.png");
         l_stench = new ImageIcon("gfx/S.png");
         l_pit = new ImageIcon("gfx/P.png");
@@ -65,14 +65,14 @@ public class GUI implements ActionListener
         l_player_down = new ImageIcon("gfx/PD.png");
         l_player_left = new ImageIcon("gfx/PL.png");
         l_player_right = new ImageIcon("gfx/PR.png");
-        
+
         createWindow();
     }
-    
+
     /**
      * Checks if all resources (icons) are found.
-     * 
-     * @return True if all resources are found, false otherwise. 
+     *
+     * @return True if all resources are found, false otherwise.
      */
     private boolean checkResources()
     {
@@ -104,22 +104,22 @@ public class GUI implements ActionListener
         }
         return true;
     }
-    
+
     /**
      * Creates all window components.
      */
     private void createWindow()
     {
         frame = new JFrame("Wumpus World");
-        frame.setSize(850, 640);
+        frame.setSize(920, 640);
         frame.getContentPane().setLayout(new FlowLayout());
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        
+
         gamepanel = new JPanel();
         gamepanel.setPreferredSize(new Dimension(600,600));
         gamepanel.setBackground(Color.GRAY);
         gamepanel.setLayout(new GridLayout(4,4));
-        
+
         //Add blocks
         blocks = new JPanel[4][4];
         for (int j = 3; j >= 0; j--)
@@ -135,10 +135,10 @@ public class GUI implements ActionListener
             }
         }
         frame.getContentPane().add(gamepanel);
-        
+
         //Add buttons panel
         JPanel buttons = new JPanel();
-        buttons.setPreferredSize(new Dimension(200,600));
+        buttons.setPreferredSize(new Dimension(280,600));
         buttons.setLayout(new FlowLayout());
         //Status label
         status = new JLabel("", SwingConstants.CENTER);
@@ -162,17 +162,17 @@ public class GUI implements ActionListener
         br.addActionListener(this);
         buttons.add(br);
         JButton bg = new JButton("Grab");
-        bg.setPreferredSize(new Dimension(45,22));
+        bg.setPreferredSize(new Dimension(85,22));
         bg.setActionCommand("GRAB");
         bg.addActionListener(this);
         buttons.add(bg);
         JButton bc = new JButton("Climb");
-        bc.setPreferredSize(new Dimension(55,22));
+        bc.setPreferredSize(new Dimension(85,22));
         bc.setActionCommand("CLIMB");
         bc.addActionListener(this);
         buttons.add(bc);
         JButton bs = new JButton("Shoot");
-        bs.setPreferredSize(new Dimension(65,22));
+        bs.setPreferredSize(new Dimension(85,22));
         bs.setActionCommand("SHOOT");
         bs.addActionListener(this);
         buttons.add(bs);
@@ -198,18 +198,18 @@ public class GUI implements ActionListener
         bn.setActionCommand("NEW");
         bn.addActionListener(this);
         buttons.add(bn);
-        
+
         frame.getContentPane().add(buttons);
-        
+
         updateGame();
-        
+
         //Show window
         frame.setVisible(true);
     }
-    
+
     /**
      * Button commands.
-     * 
+     *
      * @param e Button event.
      */
     public void actionPerformed(ActionEvent e)
@@ -270,7 +270,7 @@ public class GUI implements ActionListener
             updateGame();
         }
     }
-    
+
     /**
      * Updates the game GUI to a new world state.
      */
@@ -313,12 +313,12 @@ public class GUI implements ActionListener
                 {
                     blocks[i][j].setBackground(Color.GRAY);
                 }
-                
+
                 blocks[i][j].updateUI();
                 blocks[i][j].repaint();
             }
         }
-        
+
         score.setText("Score: " + w.getScore());
         status.setText("");
         if (w.isInPit())
@@ -329,8 +329,8 @@ public class GUI implements ActionListener
         {
             status.setText("GAME OVER");
         }
-        
+
         gamepanel.updateUI();
         gamepanel.repaint();
-    }  
+    }
 }

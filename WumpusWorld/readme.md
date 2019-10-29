@@ -77,3 +77,11 @@ Knowledge base
 ```
 
 ### 3. A star algorithm
+
+G: The horizontal and vertical movement distance is 10
+H: Calculation method: Calculate heuristics using the Manhattan method
+
+class:
+- Point: Represent coordinate
+- Node: Node data structure in A* algorithm
+- AStar: A* algorithm
